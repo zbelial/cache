@@ -1,4 +1,4 @@
-;;; cache.el --- implementation of a hash table whose key-value pairs expire
+;;; cache.el --- implementation of a hash table whose key-value pairs expire -*- lexical-binding: t; -*-
 
 ;; Author: Nathaniel Flath
 ;; Version: 0.1
@@ -24,25 +24,27 @@
 ;;  V0.1 02/09/2010
 ;;
 
-(require 'cl)
-(defun* cache-make-cache (init-fun test-fun cleanup-fun
-                                  &optional &key
-                                  (test #'eql)
-                                  (size 65)
-                                  (rehash-size 1.5)
-                                  (rehash-threshold 0.8)
-                                  (weakness nil))
+(require 'cl-lib)
+(cl-defun cache-make-cache (init-fun test-fun cleanup-fun
+                                     &optional &key
+                                     (test #'eql)
+                                     (size 65)
+                                     (rehash-size 1.5)
+                                     (rehash-threshold 0.8)
+                                     (weakness nil))
   "Creates a cached hash table.  This is a hash table where
 elements expire at some condition, as specified by init-fun and
 test-fun.  The three arguments do as follows:
 
 init-fun is a function that is called when a new item is inserted
-into the cache.
+into the cache. It takes one optional argument whose meaning
+is specified by the user.
 
 test-fun is a function that is called when an item in the cache
-is looked up.  It takes one argument, and will be passed the
+is looked up.  It takes two arguments, and will be passed the
 result of init-fun that was generated when the item was inserted
-into the cache.
+into the cache, and an optional argument whose meaning is specified
+by the user.
 
 cleanup-fun is called when an item is removed from the hash
 table.  It takes one argument, the value of the key-value pair
@@ -63,23 +65,24 @@ to the created hash table."
                          :rehash-threshold rehash-threshold
                          :weakness weakness) init-fun test-fun cleanup-fun))
 
-(defun cache-gethash (key cache)
-  "Retrieve the value corresponding to key from cache."
-  (let ((keyval (gethash key (car cache) )))
+(defun cache-gethash (key cache &optional data)
+  "Retrieve the value corresponding to KEY from CACHE.
+Make the KEY expired if test-fn returns t."
+  (let ((keyval (gethash key (car cache))))
     (if keyval
         (let ((val (car keyval))
               (info (cdr keyval)))
-          (if (funcall (caddr cache) info)
+          (if (funcall (caddr cache) info data)
               (progn
                 (remhash key (car cache))
                 (funcall (cadddr cache) val)
                 nil)
             val)))))
 
-(defun cache-puthash (key val cache)
-  "Puts the key-val pair into cache."
+(defun cache-puthash (key val cache &optional data)
+  "Puts the KEY VAL pair into CACHE."
   (puthash key
-           (cons val (funcall (cadr cache)))
+           (cons val (funcall (cadr cache) data))
            (car cache)))
 
 (provide 'cache)
