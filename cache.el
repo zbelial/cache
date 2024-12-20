@@ -25,6 +25,16 @@
 ;;
 
 (require 'cl-lib)
+(eval-when-compile
+  (require 'cl-macs))
+
+(cl-defstruct cache
+  hashtable
+  init-fun
+  test-fun
+  cleanup-fun
+  )
+
 (cl-defun cache-make-cache (init-fun test-fun cleanup-fun
                                      &optional &key
                                      (test #'eql)
@@ -59,31 +69,34 @@ list, although if accessed directly the lookups will return a pair
 
 The keyword arguments are the same as for make-hash-table and are applied
 to the created hash table."
-  (list (make-hash-table :test test
-                         :size size
-                         :rehash-size rehash-size
-                         :rehash-threshold rehash-threshold
-                         :weakness weakness) init-fun test-fun cleanup-fun))
+  (make-cache :hashtable (make-hash-table :test test
+                                          :size size
+                                          :rehash-size rehash-size
+                                          :rehash-threshold rehash-threshold
+                                          :weakness weakness)
+              :init-fun init-fun
+              :test-fun test-fun
+              :cleanup-fun cleanup-fun))
 
-(defun cache-gethash (key cache &optional data)
+(defun cache-get (key cache &optional data)
   "Retrieve the value corresponding to KEY from CACHE.
 Make the KEY expired if test-fn returns t."
-  (let ((keyval (gethash key (car cache))))
+  (let ((keyval (gethash key (cache-hashtable cache))))
     (if keyval
         (let ((val (car keyval))
               (info (cdr keyval)))
-          (if (funcall (caddr cache) info data)
+          (if (funcall (cache-test-fun cache) info data)
               (progn
-                (remhash key (car cache))
-                (funcall (cadddr cache) val)
+                (remhash key (cache-hashtable cache))
+                (funcall (cache-cleanup-fun cache) val)
                 nil)
             val)))))
 
-(defun cache-puthash (key val cache &optional data)
+(defun cache-put (key val cache &optional data)
   "Puts the KEY VAL pair into CACHE."
   (puthash key
-           (cons val (funcall (cadr cache) data))
-           (car cache)))
+           (cons val (funcall (cache-init-fun cache) data))
+           (cache-hashtable cache)))
 
 (provide 'cache)
 ;;; cache.el ends here
