@@ -20,6 +20,8 @@
 
 ;; Commentary:
 
+;;  forked from https://github.com/nflath/cache
+
 ;;  Provides a cache that acts as a hash table whose key-value pairs expire.
 ;;  V0.1 02/09/2010
 ;;
